@@ -38,6 +38,10 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.controller.podSecurityContext | nindent 8 }}
+      {{- $watchNamespaces := .Values.controller.watch.namespaces }}
+      {{- if .Values.controller.namespaceMode.enabled }}
+      {{- $watchNamespaces = list .Release.Namespace }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -103,7 +107,8 @@ spec:
             - --maxRecvMsgSize={{ .Values.controller.maxRecvMsgSize }}
             {{- end }}
             - --cacheSyncTimeout={{ .Values.controller.watch.cacheSyncTimeout }}
-            - --watchNamespaces={{ join "," .Values.controller.watch.namespaces }}
+            - --watchNamespaces={{ join "," $watchNamespaces }}
+            - --namespaceMode={{ .Values.controller.namespaceMode.enabled }}
             - --quotaRateLimitServiceAddr={{ .Values.controller.quotaRateLimitServiceAddr }}
             - --quotaRateLimitTimeout={{ .Values.controller.quotaRateLimitTimeout }}
             - --quotaRateLimitFailureModeDeny={{ .Values.controller.quotaRateLimitFailureModeDeny }}

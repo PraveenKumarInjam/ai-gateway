@@ -67,6 +67,7 @@ type gatewayMutator struct {
 	// Whether to run the extProc container as a sidecar (true) as a normal container (false).
 	// This is essentially a workaround for old k8s versions, and we can remove this in the future.
 	extProcAsSideCar bool
+	namespaceScoped  bool
 }
 
 func newGatewayMutator(c client.Client, noCacheReader client.Reader, kube kubernetes.Interface, logger logr.Logger,
@@ -74,6 +75,7 @@ func newGatewayMutator(c client.Client, noCacheReader client.Reader, kube kubern
 	udsPath string, requestHeaderAttributes, spanRequestHeaderAttributes, metricsRequestHeaderAttributes, logRequestHeaderAttributes *string, rootPrefix, endpointPrefixes, extProcExtraEnvVars, extProcImagePullSecrets string, extProcMaxRecvMsgSize int,
 	extProcAsSideCar bool,
 	mcpSessionEncryptionSeed string, mcpSessionEncryptionIterations int, mcpFallbackSessionEncryptionSeed string, mcpFallbackSessionEncryptionIterations int,
+	namespaceScoped bool,
 ) *gatewayMutator {
 	var parsedEnvVars []corev1.EnvVar
 	if extProcExtraEnvVars != "" {
@@ -119,6 +121,7 @@ func newGatewayMutator(c client.Client, noCacheReader client.Reader, kube kubern
 		mcpSessionEncryptionIterations:         mcpSessionEncryptionIterations,
 		mcpFallbackSessionEncryptionSeed:       mcpFallbackSessionEncryptionSeed,
 		mcpFallbackSessionEncryptionIterations: mcpFallbackSessionEncryptionIterations,
+		namespaceScoped:                        namespaceScoped,
 	}
 }
 
@@ -264,6 +267,13 @@ func ParseImagePullSecrets(s string) ([]corev1.LocalObjectReference, error) {
 	return result, nil
 }
 
+func (g *gatewayMutator) fallbackListOptions(gatewayNamespace string) []client.ListOption {
+	if g.namespaceScoped {
+		return []client.ListOption{client.InNamespace(gatewayNamespace)}
+	}
+	return nil
+}
+
 func (g *gatewayMutator) listAIGatewayRoutesForGateway(ctx context.Context, gatewayName, gatewayNamespace string) (aigv1b1.AIGatewayRouteList, error) {
 	var routes aigv1b1.AIGatewayRouteList
 	key := fmt.Sprintf("%s.%s", gatewayName, gatewayNamespace)
@@ -278,7 +288,7 @@ func (g *gatewayMutator) listAIGatewayRoutesForGateway(ctx context.Context, gate
 	}
 	// noCacheReader doesn't have access to cache indexes, so list then filter.
 	var all aigv1b1.AIGatewayRouteList
-	if err := g.noCacheReader.List(ctx, &all); err != nil {
+	if err := g.noCacheReader.List(ctx, &all, g.fallbackListOptions(gatewayNamespace)...); err != nil {
 		return routes, fmt.Errorf("failed to list routes: %w", err)
 	}
 	routes.Items = filterAIGatewayRoutesForGateway(all.Items, gatewayName, gatewayNamespace)
@@ -299,7 +309,7 @@ func (g *gatewayMutator) listMCPRoutesForGateway(ctx context.Context, gatewayNam
 	}
 	// noCacheReader doesn't have access to cache indexes, so list then filter.
 	var all aigv1b1.MCPRouteList
-	if err := g.noCacheReader.List(ctx, &all); err != nil {
+	if err := g.noCacheReader.List(ctx, &all, g.fallbackListOptions(gatewayNamespace)...); err != nil {
 		return routes, fmt.Errorf("failed to list MCP routes: %w", err)
 	}
 	routes.Items = filterMCPRoutesForGateway(all.Items, gatewayName, gatewayNamespace)

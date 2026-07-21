@@ -125,6 +125,9 @@ controller:
     # Sync timeout for the Kubernetes cache. If the cache is not synced within this time, the controller will exit.
     # Default is 2 minutes.
     cacheSyncTimeout: 2m
+  namespaceMode:
+    # When enabled, watches and admits resources only in the release namespace.
+    enabled: false
 
   # -- Deployment configs --
   image:

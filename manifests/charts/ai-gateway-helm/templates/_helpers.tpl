@@ -72,30 +72,15 @@ Create the name of the service account to use
 Create the name of the cluster role to use
 */}}
 {{- define "ai-gateway-helm.controller.clusterRoleName" -}}
-{{- $existing := lookup "rbac.authorization.k8s.io/v1" "ClusterRole" "" (include "ai-gateway-helm.controller.serviceAccountName" .) }}
-{{- if $existing }}
-{{- (include "ai-gateway-helm.controller.serviceAccountName" .) }}
-{{- else }}
-{{- printf "%s:%s" (include "ai-gateway-helm.controller.serviceAccountName" .) (default "default" .Release.Namespace) }}
-{{- end }}
+{{- printf "%s-%s" (include "ai-gateway-helm.controller.serviceAccountName" .) (default "default" .Release.Namespace) | trunc 253 | trimSuffix "-" }}
 {{- end }}
 
 {{- define "ai-gateway-helm.inference-pool.clusterRoleName" -}}
-{{- $existing := lookup "rbac.authorization.k8s.io/v1" "ClusterRole" "" "envoy-ai-gateway-inference-pool-reader" }}
-{{- if $existing }}
-{{- "envoy-ai-gateway-inference-pool-reader" }}
-{{- else }}
-{{- printf "%s:%s" "envoy-ai-gateway-inference-pool-reader" (default "default" .Release.Namespace)}}
-{{- end}}
+{{- printf "%s-%s" "envoy-ai-gateway-inference-pool-reader" (default "default" .Release.Namespace) | trunc 253 | trimSuffix "-" }}
 {{- end -}}
 
 {{- define "ai-gateway-helm.inference-pool.clusterRoleBindingName" -}}
-{{- $existing := lookup "rbac.authorization.k8s.io/v1" "ClusterRoleBinding" "" "envoy-ai-gateway-inference-pool-reader-binding" }}
-{{- if $existing }}
-{{- "envoy-ai-gateway-inference-pool-reader-binding" }}
-{{- else }}
-{{- printf "%s:%s" "envoy-ai-gateway-inference-pool-reader-binding" (default "default" .Release.Namespace)}}
-{{- end}}
+{{- printf "%s-%s" "envoy-ai-gateway-inference-pool-reader-binding" (default "default" .Release.Namespace) | trunc 253 | trimSuffix "-" }}
 {{- end -}}
 
 {{/*

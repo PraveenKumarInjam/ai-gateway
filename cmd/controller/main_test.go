@@ -37,6 +37,7 @@ func Test_parseAndValidateFlags(t *testing.T) {
 		require.Equal(t, 4*1024*1024, f.maxRecvMsgSize)
 		require.Nil(t, f.spanRequestHeaderAttributes)
 		require.Nil(t, f.logRequestHeaderAttributes)
+		require.False(t, f.namespaceMode)
 		require.NoError(t, err)
 	})
 	t.Run("all flags", func(t *testing.T) {
@@ -65,6 +66,7 @@ func Test_parseAndValidateFlags(t *testing.T) {
 					tc.dash + "endpointPrefixes=openai:/v1,cohere:/cohere/v2,anthropic:/anthropic/v1",
 					tc.dash + "maxRecvMsgSize=33554432",
 					tc.dash + "watchNamespaces=default,envoy-ai-gateway-system",
+					tc.dash + "namespaceMode=true",
 					tc.dash + "cacheSyncTimeout=5m",
 					tc.dash + "mcpSessionEncryptionSeed=my-seed",
 					tc.dash + "mcpSessionEncryptionIterations=100",
@@ -91,6 +93,7 @@ func Test_parseAndValidateFlags(t *testing.T) {
 				require.Equal(t, "openai:/v1,cohere:/cohere/v2,anthropic:/anthropic/v1", f.endpointPrefixes)
 				require.Equal(t, 32*1024*1024, f.maxRecvMsgSize)
 				require.Equal(t, []string{"default", "envoy-ai-gateway-system"}, f.watchNamespaces)
+				require.True(t, f.namespaceMode)
 				require.Equal(t, 5*time.Minute, f.cacheSyncTimeout)
 				require.Equal(t, "my-seed", f.mcpSessionEncryptionSeed)
 				require.Equal(t, 100, f.mcpSessionEncryptionIterations)

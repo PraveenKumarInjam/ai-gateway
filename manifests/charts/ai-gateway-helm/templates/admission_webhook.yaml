@@ -28,7 +28,11 @@ webhooks:
     objectSelector:
       {{- toYaml .Values.controller.mutatingWebhook.objectSelector | nindent 6 }}
     {{- end}}
-    {{- if .Values.controller.mutatingWebhook.namespaceSelector }}
+    {{- if .Values.controller.namespaceMode.enabled }}
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .Release.Namespace }}
+    {{- else if .Values.controller.mutatingWebhook.namespaceSelector }}
     namespaceSelector:
       {{- toYaml .Values.controller.mutatingWebhook.namespaceSelector | nindent 6 }}
     {{- end}}

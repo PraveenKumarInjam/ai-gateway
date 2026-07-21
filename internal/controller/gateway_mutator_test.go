@@ -592,7 +592,7 @@ func newTestGatewayMutator(fakeClient client.Client, fakeKube *fake2.Clientset, 
 	return newGatewayMutator(
 		fakeClient, fakeClient, fakeKube, ctrl.Log, "docker.io/envoyproxy/ai-gateway-extproc:latest", corev1.PullIfNotPresent,
 		"info", false, "/tmp/extproc.sock", requestHeaderAttributes, spanRequestHeaderAttributes, metricsRequestHeaderAttributes, logRequestHeaderAttributes, "/v1", endpointPrefixes, extProcExtraEnvVars, extProcImagePullSecrets, 512*1024*1024,
-		sidecar, "seed", 100, "fallback", 200,
+		sidecar, "seed", 100, "fallback", 200, false,
 	)
 }
 
@@ -924,7 +924,7 @@ func TestGatewayMutator_mutatePod_UsesNoCacheReader(t *testing.T) {
 		cacheClient, noCacheReader, fakeKube, ctrl.Log,
 		"docker.io/envoyproxy/ai-gateway-extproc:latest", corev1.PullIfNotPresent,
 		"info", false, "/tmp/extproc.sock", nil, nil, nil, nil, "/v1", "", "", "", 512*1024*1024,
-		false, "seed", 100, "fallback", 200,
+		false, "seed", 100, "fallback", 200, false,
 	)
 
 	const gwName, gwNamespace = "test-gateway", "test-namespace"
@@ -974,7 +974,7 @@ func TestGatewayMutator_listAIGatewayRoutesForGateway_NoCacheReaderFallback(t *t
 		cacheClient, noCacheReader, fakeKube, ctrl.Log,
 		"docker.io/envoyproxy/ai-gateway-extproc:latest", corev1.PullIfNotPresent,
 		"info", false, "/tmp/extproc.sock", nil, nil, nil, nil, "/v1", "", "", "", 512*1024*1024,
-		false, "seed", 100, "fallback", 200,
+		false, "seed", 100, "fallback", 200, false,
 	)
 
 	const gwName, gwNamespace = "test-gateway", "test-namespace"
@@ -1018,7 +1018,7 @@ func TestGatewayMutator_listMCPRoutesForGateway_NoCacheReaderFallback(t *testing
 		cacheClient, noCacheReader, fakeKube, ctrl.Log,
 		"docker.io/envoyproxy/ai-gateway-extproc:latest", corev1.PullIfNotPresent,
 		"info", false, "/tmp/extproc.sock", nil, nil, nil, nil, "/v1", "", "", "", 512*1024*1024,
-		false, "seed", 100, "fallback", 200,
+		false, "seed", 100, "fallback", 200, false,
 	)
 
 	const gwName, gwNamespace = "test-gateway", "test-namespace"
@@ -1055,4 +1055,47 @@ func TestGatewayMutator_listMCPRoutesForGateway_NoCacheReaderFallback(t *testing
 	require.NoError(t, err)
 	require.Len(t, routes.Items, 1)
 	require.Equal(t, "mcp-matching", routes.Items[0].Name)
+}
+
+func TestGatewayMutator_NamespaceScopedFallback(t *testing.T) {
+	cacheClient := requireNewFakeClientWithIndexes(t)
+	noCacheReader := requireNewFakeClientWithIndexes(t)
+	fakeKube := fake2.NewClientset()
+	g := newGatewayMutator(
+		cacheClient, noCacheReader, fakeKube, ctrl.Log,
+		"docker.io/envoyproxy/ai-gateway-extproc:latest", corev1.PullIfNotPresent,
+		"info", false, "/tmp/extproc.sock", nil, nil, nil, nil, "/v1", "", "", "", 512*1024*1024,
+		false, "seed", 100, "fallback", 200, false,
+	)
+
+	const gwName, gwNamespace, routeNamespace = "test-gateway", "test-namespace", "other-namespace"
+	parentNamespace := gwapiv1.Namespace(gwNamespace)
+
+	require.NoError(t, noCacheReader.Create(t.Context(), &aigv1b1.AIGatewayRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "cross-namespace-route", Namespace: routeNamespace},
+		Spec: aigv1b1.AIGatewayRouteSpec{
+			ParentRefs: []gwapiv1.ParentReference{{Name: gwapiv1.ObjectName(gwName), Namespace: &parentNamespace}},
+		},
+	}))
+	require.NoError(t, noCacheReader.Create(t.Context(), &aigv1b1.MCPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "cross-namespace-mcp-route", Namespace: routeNamespace},
+		Spec: aigv1b1.MCPRouteSpec{
+			ParentRefs: []gwapiv1.ParentReference{{Name: gwapiv1.ObjectName(gwName), Namespace: &parentNamespace}},
+		},
+	}))
+
+	routes, err := g.listAIGatewayRoutesForGateway(t.Context(), gwName, gwNamespace)
+	require.NoError(t, err)
+	require.Len(t, routes.Items, 1)
+	mcpRoutes, err := g.listMCPRoutesForGateway(t.Context(), gwName, gwNamespace)
+	require.NoError(t, err)
+	require.Len(t, mcpRoutes.Items, 1)
+
+	g.namespaceScoped = true
+	routes, err = g.listAIGatewayRoutesForGateway(t.Context(), gwName, gwNamespace)
+	require.NoError(t, err)
+	require.Empty(t, routes.Items)
+	mcpRoutes, err = g.listMCPRoutesForGateway(t.Context(), gwName, gwNamespace)
+	require.NoError(t, err)
+	require.Empty(t, mcpRoutes.Items)
 }

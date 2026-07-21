@@ -108,6 +108,8 @@ type Options struct {
 	RateLimitRunner *runner.Runner
 	// EnvoyGatewayNamespace is the namespace where Envoy Gateway is deployed.
 	EnvoyGatewayNamespace string
+	// NamespaceScoped limits admission fallback reads to the Gateway namespace.
+	NamespaceScoped bool
 }
 
 // StartControllers starts the controllers for the AI Gateway.
@@ -279,6 +281,7 @@ func StartControllers(ctx context.Context, mgr manager.Manager, config *rest.Con
 			options.MCPSessionEncryptionIterations,
 			options.MCPFallbackSessionEncryptionSeed,
 			options.MCPFallbackSessionEncryptionIterations,
+			options.NamespaceScoped,
 		))
 		mgr.GetWebhookServer().Register("/mutate", &webhook.Admission{Handler: h})
 	}

@@ -69,6 +69,7 @@ type flags struct {
 	mcpSessionEncryptionIterations         int
 	mcpFallbackSessionEncryptionIterations int
 	watchNamespaces                        []string
+	namespaceMode                          bool
 	cacheSyncTimeout                       time.Duration
 	quotaRateLimitServiceAddr              string
 	quotaRateLimitTimeout                  int64
@@ -229,6 +230,11 @@ func parseAndValidateFlags(args []string) (*flags, error) {
 		"",
 		"Comma-separated list of namespaces to watch. If not set, the controller watches all namespaces.",
 	)
+	namespaceMode := fs.Bool(
+		"namespaceMode",
+		false,
+		"Restrict admission fallback reads to the Gateway namespace.",
+	)
 	cacheSyncTimeout := fs.Duration(
 		"cacheSyncTimeout",
 		2*time.Minute, // This is the controller-runtime default
@@ -358,6 +364,7 @@ func parseAndValidateFlags(args []string) (*flags, error) {
 		extProcMaxRecvMsgSize:                  *extProcMaxRecvMsgSize,
 		maxRecvMsgSize:                         *maxRecvMsgSize,
 		watchNamespaces:                        parseWatchNamespaces(*watchNamespaces),
+		namespaceMode:                          *namespaceMode,
 		cacheSyncTimeout:                       *cacheSyncTimeout,
 		mcpSessionEncryptionSeed:               *mcpSessionEncryptionSeed,
 		mcpFallbackSessionEncryptionSeed:       *mcpFallbackSessionEncryptionSeed,
@@ -472,6 +479,7 @@ func main() {
 		MCPFallbackSessionEncryptionSeed:       parsedFlags.mcpFallbackSessionEncryptionSeed,
 		MCPFallbackSessionEncryptionIterations: parsedFlags.mcpFallbackSessionEncryptionIterations,
 		RateLimitRunner:                        rlRunner,
+		NamespaceScoped:                        parsedFlags.namespaceMode,
 	}); err != nil {
 		setupLog.Error(err, "failed to start controller")
 	}
